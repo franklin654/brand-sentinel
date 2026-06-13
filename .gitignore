@@ -83,5 +83,8 @@ brand-risk-scaffold.zip
 # Secret files
 .api_keys
 
+# AI Coding
+CLAUDE.md
+
 # Includes
 !.env.example

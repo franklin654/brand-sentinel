@@ -8,6 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 from brand_risk import synthetic_data as data
+from pages._helpers import render_manual_entry
 
 st.title("Documents")
 st.caption("Upload data files and supplier contracts. Changes apply to the next pipeline run.")
@@ -86,6 +87,8 @@ entity_id,text,post_id,timestamp
 e_acme,"Awful recall, unacceptable",p001,2026-06-14T09:00:00
 ```
 """)
+
+render_manual_entry(data.WATCHLIST)
 
 # ── Supplier contracts ────────────────────────────────────────────────────────
 st.divider()
