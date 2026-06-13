@@ -1,0 +1,20 @@
+langchain-openai>=1.3.0
+langchain-core>=1.4.0
+langchain>=1.3.0
+langsmith>=0.8.0
+langgraph>=1.2.5
+langgraph-prebuilt>=1.1.0
+pydantic>=2.13
+networkx>=3.4
+vaderSentiment>=3.3.2
+streamlit>=1.58
+sentence-transformers>=5.5.0
+numpy>=2.0
+matplotlib>=3.10
+
+# AMD Cloud — install ROCm-enabled torch BEFORE sentence-transformers:
+# pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm7.2
+# sentence-transformers and vLLM then pick up the ROCm 7.x backend automatically
+
+# optional GPU sentiment upgrade (same call site as VADER):
+# transformers>=4.40

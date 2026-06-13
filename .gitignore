@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Distribution / packaging
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-link
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets & credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Model weights & data (large binaries)
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+models/
+weights/
+
+# sentence-transformers model cache
+.cache/
+huggingface/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# LangSmith / LangChain local state
+.langchain/
+
+# Build artefacts
+brand-risk-scaffold.zip
+*.zip

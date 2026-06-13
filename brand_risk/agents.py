@@ -1,0 +1,139 @@
+"""The three agents.
+
+Design choices that matter for a 3-day build:
+
+* Sentiment scoring (AGENTS_039) uses VADER, not an LLM, per post. Scoring
+  hundreds of posts with an LLM is slow and pointless — VADER is instant on
+  CPU and good enough to *detect a spike*. The LLM is reserved for the
+  reasoning-heavy steps where it actually earns its latency: narrative
+  clustering, disambiguation, risk explanation, vendor reasoning.
+  (Upgrade path: swap VADER for cardiffnlp/twitter-roberta-base-sentiment on
+  ROCm if you want GPU throughput — same call site.)
+
+* Each agent is a plain function `state -> state`. That keeps them unit-
+  testable in isolation and trivial to wire into LangGraph (orchestrator.py).
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import datetime
+
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+from . import synthetic_data as data
+from .llm import chat_json
+from .schemas import (
+    AdverseFinding, MediaHit, TrendSignal, VendorRisk,
+)
+
+_vader = SentimentIntensityAnalyzer()
+NEG_POST = -0.20        # a single post counts as "negative" below this
+NEG_RATIO = 0.30        # fraction of negative posts that constitutes a spike
+MIN_VOLUME = 3          # and an absolute floor so tiny samples don't fire
+
+
+# ── AGENTS_039 : Social Media Insights ───────────────────────────────────────
+def social_agent(state: dict) -> dict:
+    posts = state["posts"]
+    for p in posts:
+        p.sentiment = _vader.polarity_scores(p.text)["compound"]
+
+    by_entity: dict[str, list] = defaultdict(list)
+    for p in posts:
+        by_entity[p.entity_id].append(p)
+
+    signals = []
+    for eid, group in by_entity.items():
+        neg = [p for p in group if p.sentiment < NEG_POST]
+        ratio = len(neg) / len(group)
+        if len(neg) >= MIN_VOLUME and ratio >= NEG_RATIO:
+            name = next(e.name for e in state["watchlist"] if e.entity_id == eid)
+            samples = [p.text for p in sorted(neg, key=lambda x: x.sentiment)[:4]]
+            cluster = _summarise_cluster(name, samples)
+            signals.append(TrendSignal(
+                entity_id=eid, entity_name=name,
+                sentiment_delta=round(sum(p.sentiment for p in group) / len(group), 3),
+                volume=len(neg),
+                narrative_cluster=cluster, sample_posts=samples,
+                detected_at=datetime.utcnow().isoformat(),
+            ))
+    state["trend_signals"] = signals
+    return state
+
+
+def _summarise_cluster(name: str, samples: list[str]) -> str:
+    from .llm import chat
+    sys = ("You label clusters of negative social posts. Given posts about an "
+           "entity, reply with ONE short sentence naming the core complaint.")
+    user = f"Entity: {name}\nPosts:\n- " + "\n- ".join(samples)
+    return chat(sys, user, temperature=0.1).strip()
+
+
+# ── AGENTS_001 : Adverse Media Screening ─────────────────────────────────────
+_ADVERSE_SYS = (
+    "You are an adverse-media analyst. You are given a monitored entity, the "
+    "social narrative that flagged it, and candidate news articles. For each "
+    "article decide whether it genuinely concerns THIS entity (disambiguation) "
+    "and is adverse. Then assign an overall risk_score 0-100 and a category. "
+    "Ground your explanation in the article snippets; never invent facts."
+)
+
+
+def adverse_agent(state: dict) -> dict:
+    findings = []
+    for sig in state["trend_signals"]:
+        ent = next(e for e in state["watchlist"] if e.entity_id == sig.entity_id)
+        articles = data.search_news(ent.name, ent.aliases)
+        user = (
+            f"Entity: {ent.name} (aliases: {', '.join(ent.aliases) or 'none'})\n"
+            f"Social narrative: {sig.narrative_cluster}\n\n"
+            f"Candidate articles:\n" + "\n".join(
+                f"[{i}] {a['title']} — {a['snippet']} ({a['url']})"
+                for i, a in enumerate(articles)
+            )
+        )
+        finding = chat_json(_ADVERSE_SYS, user, AdverseFinding)
+        # Trust the model's reasoning but pin identifiers to our ground truth.
+        finding.entity_id = ent.entity_id
+        finding.entity_name = ent.name
+        findings.append(finding)
+    state["adverse_findings"] = findings
+    return state
+
+
+# ── AGENTS_016 : Third-Party / Vendor Risk ───────────────────────────────────
+_VENDOR_SYS = (
+    "You assess third-party risk. Given an adverse finding about an entity and "
+    "its neighbours in a supplier graph, decide each neighbour's exposure "
+    "(none/indirect/direct), the risk drivers, and a recommended action "
+    "(monitor/engage/diversify/exit). Be conservative; justify with the graph "
+    "relation and the adverse finding."
+)
+
+
+def vendor_agent(state: dict) -> dict:
+    g = state["graph"]
+    risks = []
+    seen = set()
+    for finding in state["adverse_findings"]:
+        if finding.risk_category in ("low",):
+            continue
+        for nbr in g.neighbors(finding.entity_id):
+            if (finding.entity_id, nbr) in seen:
+                continue
+            seen.add((finding.entity_id, nbr))
+            relation = g.edges[finding.entity_id, nbr]["relation"]
+            nbr_name = g.nodes[nbr]["name"]
+            user = (
+                f"Flagged entity: {finding.entity_name} "
+                f"(risk {finding.risk_score}/100, {finding.risk_category})\n"
+                f"Finding: {finding.explanation}\n\n"
+                f"Neighbour under review: {nbr_name}\n"
+                f"Graph relation: {relation}"
+            )
+            vr = chat_json(_VENDOR_SYS, user, VendorRisk)
+            vr.vendor_id = nbr
+            vr.vendor_name = nbr_name
+            risks.append(vr)
+    state["vendor_risks"] = risks
+    return state
