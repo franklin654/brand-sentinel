@@ -56,6 +56,7 @@ class AdverseFinding(BaseModel):
     risk_category: Literal["low", "medium", "high", "critical"]
     hits: list[MediaHit]
     explanation: str            # human-readable, source-grounded rationale
+    calibration_anchors: list[str] = []  # retrieved past incidents (populated by agent, not LLM)
 
 
 # ── AGENTS_016 : Third-Party / Vendor Risk ───────────────────────────────────
@@ -66,6 +67,7 @@ class VendorRisk(BaseModel):
     risk_drivers: list[str]
     recommended_action: Literal["monitor", "engage", "diversify", "exit"]
     rationale: str
+    cited_clauses: list[str] = []  # retrieved contract excerpts (populated by agent, not LLM)
 
 
 # ── Final artifact ───────────────────────────────────────────────────────────
@@ -78,3 +80,7 @@ class ReputationDossier(BaseModel):
     adverse: AdverseFinding
     vendor_impacts: list[VendorRisk]
     generated_at: str
+    risk_attribution: dict[str, float] = {}   # {social_pct, media_pct, vendor_pct}
+    suggested_response: str = ""              # retrieved from playbook RAG (empty when not indexed)
+    peer_rank: int = 0                        # 1 = highest risk this run; 0 = not computed
+    industry_median_score: float = 0.0       # median risk_score across all entities this run

@@ -15,6 +15,8 @@ Design choices that matter for a 3-day build:
 """
 from __future__ import annotations
 
+import json
+import os
 from collections import defaultdict
 from datetime import datetime
 
@@ -27,9 +29,22 @@ from .schemas import (
 )
 
 _vader = SentimentIntensityAnalyzer()
-NEG_POST = -0.20        # a single post counts as "negative" below this
-NEG_RATIO = 0.30        # fraction of negative posts that constitutes a spike
-MIN_VOLUME = 3          # and an absolute floor so tiny samples don't fire
+NEG_POST   = -0.20   # a single post counts as "negative" below this
+NEG_RATIO  =  0.30   # fraction of negative posts that constitutes a spike (default)
+MIN_VOLUME =  3      # absolute floor so tiny samples don't fire
+
+_ALERT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "alert_config.json")
+
+
+def _load_alert_config() -> dict:
+    """Load per-entity alert thresholds from alert_config.json. Returns {} if absent."""
+    if not os.path.exists(_ALERT_CONFIG_PATH):
+        return {}
+    try:
+        with open(_ALERT_CONFIG_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 # ── AGENTS_039 : Social Media Insights ───────────────────────────────────────
@@ -42,11 +57,13 @@ def social_agent(state: dict) -> dict:
     for p in posts:
         by_entity[p.entity_id].append(p)
 
+    alert_cfg = _load_alert_config()
     signals = []
     for eid, group in by_entity.items():
         neg = [p for p in group if p.sentiment < NEG_POST]
         ratio = len(neg) / len(group)
-        if len(neg) >= MIN_VOLUME and ratio >= NEG_RATIO:
+        ratio_threshold = alert_cfg.get(eid, {}).get("neg_ratio", NEG_RATIO)
+        if len(neg) >= MIN_VOLUME and ratio >= ratio_threshold:
             name = next(e.name for e in state["watchlist"] if e.entity_id == eid)
             samples = [p.text for p in sorted(neg, key=lambda x: x.sentiment)[:4]]
             cluster = _summarise_cluster(name, samples)
@@ -80,15 +97,30 @@ _ADVERSE_SYS = (
 
 
 def adverse_agent(state: dict) -> dict:
+    from .rag import retrieve_similar_incidents
+
+    from .analytics import annotate_articles
+
     findings = []
     for sig in state["trend_signals"]:
         ent = next(e for e in state["watchlist"] if e.entity_id == sig.entity_id)
-        articles = data.search_news(ent.name, ent.aliases)
+        articles = annotate_articles(data.search_news(ent.name, ent.aliases))
+
+        # RAG: retrieve calibration anchors from historical incident index.
+        # Returns [] when .chroma/ index is absent — prompt degrades gracefully.
+        anchors = retrieve_similar_incidents(sig.narrative_cluster, k=3)
+        anchor_block = (
+            "\n\nSimilar past cases — use as scoring anchors:\n"
+            + "\n".join(f"- {a}" for a in anchors)
+        ) if anchors else ""
+
         user = (
             f"Entity: {ent.name} (aliases: {', '.join(ent.aliases) or 'none'})\n"
-            f"Social narrative: {sig.narrative_cluster}\n\n"
-            f"Candidate articles:\n" + "\n".join(
+            f"Social narrative: {sig.narrative_cluster}"
+            + anchor_block
+            + "\n\nCandidate articles:\n" + "\n".join(
                 f"[{i}] {a['title']} — {a['snippet']} ({a['url']})"
+                f" [source credibility: {a.get('credibility', 0.5):.2f}]"
                 for i, a in enumerate(articles)
             )
         )
@@ -96,6 +128,7 @@ def adverse_agent(state: dict) -> dict:
         # Trust the model's reasoning but pin identifiers to our ground truth.
         finding.entity_id = ent.entity_id
         finding.entity_name = ent.name
+        finding.calibration_anchors = anchors
         findings.append(finding)
     state["adverse_findings"] = findings
     return state
@@ -112,6 +145,8 @@ _VENDOR_SYS = (
 
 
 def vendor_agent(state: dict) -> dict:
+    from .rag import retrieve_contract_clauses
+
     g = state["graph"]
     risks = []
     seen = set()
@@ -124,16 +159,26 @@ def vendor_agent(state: dict) -> dict:
             seen.add((finding.entity_id, nbr))
             relation = g.edges[finding.entity_id, nbr]["relation"]
             nbr_name = g.nodes[nbr]["name"]
+
+            # Contract RAG: retrieve relevant clauses (returns [] when no contract indexed).
+            clauses = retrieve_contract_clauses(nbr, finding.explanation, k=3)
+            clause_block = (
+                "\n\nRelevant contract clauses — cite these in your rationale:\n"
+                + "\n".join(f"- {c[:300]}" for c in clauses)
+            ) if clauses else ""
+
             user = (
                 f"Flagged entity: {finding.entity_name} "
                 f"(risk {finding.risk_score}/100, {finding.risk_category})\n"
-                f"Finding: {finding.explanation}\n\n"
-                f"Neighbour under review: {nbr_name}\n"
+                f"Finding: {finding.explanation}"
+                + clause_block
+                + f"\n\nNeighbour under review: {nbr_name}\n"
                 f"Graph relation: {relation}"
             )
             vr = chat_json(_VENDOR_SYS, user, VendorRisk)
             vr.vendor_id = nbr
             vr.vendor_name = nbr_name
+            vr.cited_clauses = clauses
             risks.append(vr)
     state["vendor_risks"] = risks
     return state

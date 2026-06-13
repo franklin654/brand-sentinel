@@ -5,15 +5,24 @@ Demo reliability beats realism for a hackathon. A planted, reproducible
 scenario means your live demo cannot fail because a web search returned
 nothing — you get a guaranteed spike, guaranteed adverse hits, and a
 guaranteed vendor impact, while the *reasoning* over them is still real.
+
+search_news() has three tiers:
+  1. SerpAPI Google News (when SERP_API_KEY env var is set)
+  2. Semantic similarity over NEWS_CORPUS (when sentence-transformers available)
+  3. Substring match over NEWS_CORPUS (always available — keeps smoke.py working)
 """
 from __future__ import annotations
 
+import logging
+import os
 import random
 from datetime import datetime, timedelta
 
 import networkx as nx
 
 from .schemas import Entity, SocialPost
+
+logger = logging.getLogger(__name__)
 
 random.seed(7)
 _START = datetime(2026, 6, 1, 9, 0, 0)
@@ -23,6 +32,15 @@ WATCHLIST = [
     Entity(entity_id="e_rivera", name="Dana Rivera",       kind="executive", aliases=["D. Rivera", "CEO Rivera"]),
     Entity(entity_id="e_nimbus", name="Nimbus Logistics",  kind="vendor",    aliases=["Nimbus"]),
     Entity(entity_id="e_orchard",name="Orchard Packaging", kind="vendor",    aliases=["Orchard Pack"]),
+]
+
+# Competitor entities used for peer benchmarking (opt-in via dashboard toggle).
+# Not in WATCHLIST by default — appended at call time in _load_inputs().
+PEER_WATCHLIST: list[Entity] = [
+    Entity(entity_id="e_fresh_corp", name="Fresh Corp",
+           kind="brand", aliases=["FreshCorp", "Fresh Corporation"]),
+    Entity(entity_id="e_greenleaf",  name="Greenleaf Foods",
+           kind="brand", aliases=["Greenleaf"]),
 ]
 
 # Each scenario plants negative posts for one entity plus matching news.
@@ -106,12 +124,24 @@ _SIM_THRESHOLD = 0.25  # cosine similarity floor for semantic search
 
 
 def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
-    """Stand-in for a live news API. Swap for ddgs/SerpAPI by keeping this
-    signature and returning the same dict shape.
+    """Return relevant news articles for an entity.
 
-    Uses semantic similarity (sentence-transformers) when available; falls back
-    to substring matching so smoke.py works without GPU deps.
+    Three-tier resolution:
+      1. SerpAPI Google News — when SERP_API_KEY env var is set.
+      2. Semantic similarity over NEWS_CORPUS — when sentence-transformers available.
+      3. Substring match over NEWS_CORPUS — always available (smoke.py fallback).
+
+    Signature is stable: callers and tests are unaffected by which tier runs.
     """
+    # Tier 1: live SerpAPI
+    if os.getenv("SERP_API_KEY"):
+        try:
+            from .live_search import fetch_news
+            return fetch_news(entity_name, list(aliases))
+        except Exception as exc:
+            logger.warning("SerpAPI fetch failed (%s); falling back to corpus", exc)
+
+    # Tier 2: semantic similarity over local corpus
     try:
         from .embeddings import cosine_scores
         query = " ".join([entity_name] + list(aliases))
@@ -119,8 +149,11 @@ def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
         scores = cosine_scores(query, candidates)
         return [art for art, score in zip(NEWS_CORPUS, scores) if score >= _SIM_THRESHOLD]
     except ImportError:
-        names = [entity_name.lower(), *[a.lower() for a in aliases]]
-        return [
-            art for art in NEWS_CORPUS
-            if any(nm in (art["title"] + " " + art["snippet"]).lower() for nm in names)
-        ]
+        pass
+
+    # Tier 3: substring match (no GPU deps — keeps smoke.py deterministic)
+    names = [entity_name.lower(), *[a.lower() for a in aliases]]
+    return [
+        art for art in NEWS_CORPUS
+        if any(nm in (art["title"] + " " + art["snippet"]).lower() for nm in names)
+    ]

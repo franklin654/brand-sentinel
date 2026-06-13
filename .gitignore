@@ -72,6 +72,16 @@ huggingface/
 # LangSmith / LangChain local state
 .langchain/
 
+# Runtime data (generated at startup — not source)
+.chroma/
+*.db
+
 # Build artefacts
 brand-risk-scaffold.zip
 *.zip
+
+# Secret files
+.api_keys
+
+# Includes
+!.env.example

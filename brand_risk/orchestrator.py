@@ -9,16 +9,21 @@ continuously rather than as three separate batch jobs.
 """
 from __future__ import annotations
 
+import logging
+import statistics
 from datetime import datetime
 from typing import TypedDict
 
 import networkx as nx
 from langgraph.graph import END, StateGraph
 
-from . import agents
+from . import agents, analytics, store
+from .rag import retrieve_response_template
 from .schemas import (
     AdverseFinding, Entity, ReputationDossier, SocialPost, TrendSignal, VendorRisk,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FlowState(TypedDict, total=False):
@@ -51,14 +56,34 @@ def _synthesise(state: FlowState) -> FlowState:
         g = state["graph"]
         neighbor_ids = set(g.neighbors(sig.entity_id))
         impacts = [v for v in state.get("vendor_risks", []) if v.vendor_id in neighbor_ids]
+        attribution = analytics.compute_attribution(sig, finding, impacts)
+        template = retrieve_response_template(
+            f"{sig.narrative_cluster} {finding.explanation}", k=1
+        )
         dossiers.append(ReputationDossier(
             entity_id=sig.entity_id, entity_name=sig.entity_name,
             headline=sig.narrative_cluster,
             overall_risk=finding.risk_category,
             trend=sig, adverse=finding, vendor_impacts=impacts,
             generated_at=datetime.utcnow().isoformat(),
+            risk_attribution=attribution,
+            suggested_response=template,
         ))
+    if len(dossiers) > 1:
+        scores = [d.adverse.risk_score for d in dossiers]
+        median = float(statistics.median(scores))
+        for rank, d in enumerate(
+            sorted(dossiers, key=lambda x: x.adverse.risk_score, reverse=True), start=1
+        ):
+            d.peer_rank = rank
+            d.industry_median_score = round(median, 1)
+
     state["dossiers"] = dossiers
+    try:
+        store.save_run(dossiers)
+    except Exception as exc:
+        logger.warning("Failed to persist run to SQLite (%s) — continuing", exc)
+        state.setdefault("error_log", []).append(f"store.save_run: {exc}")
     return state
 
 
