@@ -1,10 +1,8 @@
-"""Generates a demo-safe world: a watchlist, a social stream with two planted
-crisis scenarios, a small news corpus, and an entity->vendor graph.
+"""Generates a demo world grounded in real aerospace industry entities.
 
-Demo reliability beats realism for a hackathon. A planted, reproducible
-scenario means your live demo cannot fail because a web search returned
-nothing — you get a guaranteed spike, guaranteed adverse hits, and a
-guaranteed vendor impact, while the *reasoning* over them is still real.
+Boeing's 2024 safety crisis (737 Max door plug blowout, FAA production audit,
+Spirit AeroSystems fuselage defects, CEO Senate testimony) gives the jury
+recognisable context while the pipeline reasoning remains fully live.
 
 search_news() has three tiers:
   1. SerpAPI Google News (when SERP_API_KEY env var is set)
@@ -28,64 +26,86 @@ random.seed(7)
 _START = datetime(2026, 6, 1, 9, 0, 0)
 
 WATCHLIST = [
-    Entity(entity_id="e_acme",   name="Acme Foods",        kind="brand",     aliases=["Acme", "AcmeFoods"]),
-    Entity(entity_id="e_rivera", name="Dana Rivera",       kind="executive", aliases=["D. Rivera", "CEO Rivera"]),
-    Entity(entity_id="e_nimbus", name="Nimbus Logistics",  kind="vendor",    aliases=["Nimbus"]),
-    Entity(entity_id="e_orchard",name="Orchard Packaging", kind="vendor",    aliases=["Orchard Pack"]),
+    Entity(entity_id="e_boeing",  name="Boeing",             kind="brand",
+           aliases=["BA", "Boeing Co", "The Boeing Company"]),
+    Entity(entity_id="e_calhoun", name="Dave Calhoun",       kind="executive",
+           aliases=["David Calhoun", "Boeing CEO", "David L. Calhoun"]),
+    Entity(entity_id="e_spirit",  name="Spirit AeroSystems", kind="vendor",
+           aliases=["Spirit Aero", "SPR", "Spirit AeroSystems Holdings"]),
+    Entity(entity_id="e_ge_aero", name="GE Aerospace",       kind="vendor",
+           aliases=["GE Aviation", "GEA", "General Electric Aerospace"]),
 ]
 
 # Competitor entities used for peer benchmarking (opt-in via dashboard toggle).
-# Not in WATCHLIST by default — appended at call time in _load_inputs().
 PEER_WATCHLIST: list[Entity] = [
-    Entity(entity_id="e_fresh_corp", name="Fresh Corp",
-           kind="brand", aliases=["FreshCorp", "Fresh Corporation"]),
-    Entity(entity_id="e_greenleaf",  name="Greenleaf Foods",
-           kind="brand", aliases=["Greenleaf"]),
+    Entity(entity_id="e_airbus",   name="Airbus",
+           kind="brand", aliases=["AIR", "Airbus SE"]),
+    Entity(entity_id="e_rtx",      name="RTX Corporation",
+           kind="brand", aliases=["RTX", "Raytheon Technologies"]),
 ]
 
-# Each scenario plants negative posts for one entity plus matching news.
+# Planted negative posts — one scenario per crisis entity.
 _SCENARIOS = {
-    "e_acme": [
-        "Just found mold in my Acme Foods cereal box, absolutely disgusting",
-        "Acme Foods recall? my whole family got sick after eating their product",
-        "Why is no one talking about the Acme Foods contamination, this is serious",
-        "Acme Foods customer service ignored my complaint about spoiled product",
+    "e_boeing": [
+        "The 737 Max door plug blowout is terrifying — I am never flying Boeing again",
+        "Boeing's quality control is in freefall, FAA found hundreds of defects in new planes",
+        "How many more incidents before Boeing is held accountable for cutting corners on safety?",
+        "Shocking that Boeing jets are still certified after the door plug blew mid-flight, unacceptable",
     ],
-    "e_rivera": [
-        "Dana Rivera's awful, tone-deaf remarks at the conference were completely irresponsible",
-        "CEO Rivera's shameful handling of the layoffs is dishonest and wrong",
-        "Disgusted by Dana Rivera after that terrible interview, she handled it horribly",
-        "Dana Rivera is a disgrace after those dismissive comments about workers",
+    "e_calhoun": [
+        "Dave Calhoun's Senate testimony was evasive and insulting to the victims' families",
+        "Boeing CEO Calhoun pocketed $45M while the company ignored safety warnings — disgusting",
+        "Calhoun admitted knowing about quality issues and did nothing, that is criminal negligence",
+        "The Boeing CEO's response to the door plug crisis was tone-deaf and completely unacceptable",
     ],
 }
 
 _NEUTRAL = [
-    "{n} launched a new product line today, looks interesting",
-    "Anyone tried {n} recently? thinking about it",
-    "{n} had a booth at the expo, decent",
-    "Solid quarter for {n} from what I read",
+    "{n} posted solid earnings this quarter, analysts seem cautiously optimistic",
+    "Anyone following {n} lately? Interesting moves in the sector",
+    "{n} had a presence at the airshow, impressive display",
+    "Reading up on {n} for a case study — decent overview in the annual report",
 ]
 
 NEWS_CORPUS = [
-    {"title": "Acme Foods issues voluntary recall over contamination concerns",
-     "url": "https://news.example.com/acme-recall",
-     "snippet": "Acme Foods has recalled several batches after reports of "
-                "contamination; regulators have opened an inquiry.",
-     "entities": ["e_acme"]},
-    {"title": "Health authority investigates Acme Foods supplier hygiene",
-     "url": "https://news.example.com/acme-supplier-probe",
-     "snippet": "The investigation extends to a packaging supplier linked to "
-                "the affected production line.",
-     "entities": ["e_acme", "e_orchard"]},
-    {"title": "Acme CEO Dana Rivera criticised for handling of layoffs",
-     "url": "https://news.example.com/rivera-layoffs",
-     "snippet": "Commentators called the executive's remarks dismissive amid "
-                "staff cuts.",
-     "entities": ["e_rivera", "e_acme"]},
-    {"title": "Local sports club announces new sponsor",
-     "url": "https://news.example.com/sports-sponsor",
-     "snippet": "Unrelated community news with no bearing on monitored brands.",
-     "entities": []},
+    {
+        "title": "Boeing 737 Max door plug blowout forces emergency landing, FAA launches audit",
+        "url": "https://news.example.com/boeing-737-door-plug-2024",
+        "snippet": "The Federal Aviation Administration launched a comprehensive audit of Boeing's "
+                   "737 Max production line after a door plug separated mid-flight on an Alaska Airlines "
+                   "jet. Boeing has been ordered to cap monthly output while inspections are completed.",
+        "entities": ["e_boeing"],
+    },
+    {
+        "title": "Spirit AeroSystems fuselage defects at centre of Boeing quality probe",
+        "url": "https://news.example.com/spirit-aero-defects-2024",
+        "snippet": "Investigators identified improperly drilled fastener holes in fuselage panels "
+                   "produced by Spirit AeroSystems, Boeing's primary fuselage supplier. The FAA has "
+                   "restricted Boeing's 737 production rate pending corrective action at Spirit's Wichita plant.",
+        "entities": ["e_boeing", "e_spirit"],
+    },
+    {
+        "title": "Boeing CEO Dave Calhoun grilled by Senate over safety culture and whistleblower claims",
+        "url": "https://news.example.com/calhoun-senate-testimony-2024",
+        "snippet": "Senators pressed Boeing chief executive Dave Calhoun on whether financial pressure "
+                   "led managers to override safety engineers. Whistleblowers testified that quality "
+                   "concerns were systematically suppressed to meet production targets.",
+        "entities": ["e_calhoun", "e_boeing"],
+    },
+    {
+        "title": "GE Aerospace engine deliveries on schedule despite Boeing production slowdown",
+        "url": "https://news.example.com/ge-aerospace-deliveries-2024",
+        "snippet": "GE Aerospace confirmed LEAP engine deliveries remain on track, though analysts warn "
+                   "a prolonged Boeing output cap could weigh on GE's order backlog recognition in H2.",
+        "entities": ["e_ge_aero", "e_boeing"],
+    },
+    {
+        "title": "Aviation summit focuses on sustainable fuel mandates for 2030",
+        "url": "https://news.example.com/aviation-saf-summit-2026",
+        "snippet": "Industry leaders convened to discuss SAF blending requirements with no specific "
+                   "safety or reputational issues raised for monitored entities.",
+        "entities": [],
+    },
 ]
 
 
@@ -110,17 +130,17 @@ def social_stream(n_per_entity: int = 12) -> list[SocialPost]:
 
 
 def vendor_graph() -> nx.Graph:
-    """Who supplies / is associated with whom. Edges carry a relation label."""
+    """Supplier relationships for the Boeing ecosystem."""
     g = nx.Graph()
     for e in WATCHLIST:
         g.add_node(e.entity_id, name=e.name, kind=e.kind)
-    g.add_edge("e_acme", "e_nimbus",  relation="logistics_supplier")
-    g.add_edge("e_acme", "e_orchard", relation="packaging_supplier")
-    g.add_edge("e_rivera", "e_acme",  relation="executive_of")
+    g.add_edge("e_boeing",  "e_spirit",  relation="fuselage_supplier")
+    g.add_edge("e_boeing",  "e_ge_aero", relation="engine_supplier")
+    g.add_edge("e_calhoun", "e_boeing",  relation="ceo_of")
     return g
 
 
-_SIM_THRESHOLD = 0.25  # cosine similarity floor for semantic search
+_SIM_THRESHOLD = 0.25
 
 
 def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
@@ -130,10 +150,7 @@ def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
       1. SerpAPI Google News — when SERP_API_KEY env var is set.
       2. Semantic similarity over NEWS_CORPUS — when sentence-transformers available.
       3. Substring match over NEWS_CORPUS — always available (smoke.py fallback).
-
-    Signature is stable: callers and tests are unaffected by which tier runs.
     """
-    # Tier 1: live SerpAPI
     if os.getenv("SERP_API_KEY"):
         try:
             from .live_search import fetch_news
@@ -141,7 +158,6 @@ def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
         except Exception as exc:
             logger.warning("SerpAPI fetch failed (%s); falling back to corpus", exc)
 
-    # Tier 2: semantic similarity over local corpus
     try:
         from .embeddings import cosine_scores
         query = " ".join([entity_name] + list(aliases))
@@ -151,7 +167,6 @@ def search_news(entity_name: str, aliases: list[str]) -> list[dict]:
     except ImportError:
         pass
 
-    # Tier 3: substring match (no GPU deps — keeps smoke.py deterministic)
     names = [entity_name.lower(), *[a.lower() for a in aliases]]
     return [
         art for art in NEWS_CORPUS

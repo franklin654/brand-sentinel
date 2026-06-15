@@ -1,0 +1,5 @@
+entity_id,name,kind,aliases
+e_boeing,Boeing,brand,BA;Boeing Co;The Boeing Company
+e_calhoun,Dave Calhoun,executive,David Calhoun;Boeing CEO;David L. Calhoun
+e_spirit,Spirit AeroSystems,vendor,Spirit Aero;SPR;Spirit AeroSystems Holdings
+e_ge_aero,GE Aerospace,vendor,GE Aviation;GEA;General Electric Aerospace

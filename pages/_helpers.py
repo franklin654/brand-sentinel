@@ -5,6 +5,78 @@ import streamlit as st
 
 from brand_risk.schemas import Entity
 from brand_risk.upload_parser import build_vendor_graph
+from brand_risk import store as risk_store
+
+
+def build_system_prompt(dossiers: list, entity_filter: str | None = None) -> str:
+    """Serialize dossiers into a plain-text system prompt for the analyst chat."""
+    targets = [d for d in dossiers if entity_filter is None or d.entity_id == entity_filter]
+    lines = [
+        "You are a brand and reputational risk analyst. The following intelligence was "
+        f"produced by the latest pipeline run ({targets[0].generated_at[:19].replace('T', ' ')} UTC "
+        f"— {len(targets)} entit{'y' if len(targets) == 1 else 'ies'}).\n",
+    ]
+    for d in targets:
+        attr = d.risk_attribution
+        lines.append(
+            f"--- ENTITY: {d.entity_name} [{d.overall_risk.upper()} risk, "
+            f"score {d.adverse.risk_score}/100] ---"
+        )
+        lines.append(f"Narrative: {d.trend.narrative_cluster}")
+        lines.append(
+            f"Sentiment delta: {d.trend.sentiment_delta:.3f}  |  "
+            f"Volume: {d.trend.volume} negative posts"
+        )
+        if attr:
+            lines.append(
+                f"Attribution: Social {attr.get('social_pct', 0):.0f}%  |  "
+                f"Media {attr.get('media_pct', 0):.0f}%  |  "
+                f"Vendor {attr.get('vendor_pct', 0):.0f}%"
+            )
+        lines.append(f"Explanation: {d.adverse.explanation}")
+        relevant_hits = [h for h in d.adverse.hits if h.relevant]
+        if relevant_hits:
+            lines.append("Media sources (relevant):")
+            for i, h in enumerate(relevant_hits, 1):
+                lines.append(f"  {i}. \"{h.title}\" — {h.url}")
+        if d.vendor_impacts:
+            lines.append("Vendor impacts:")
+            for v in d.vendor_impacts:
+                lines.append(
+                    f"  - {v.vendor_name} ({v.exposure}): "
+                    f"{v.recommended_action.upper()} — {v.rationale}"
+                )
+        if d.peer_rank > 0:
+            lines.append(
+                f"Peer rank: #{d.peer_rank} of {len(dossiers)}  |  "
+                f"Industry median score: {d.industry_median_score:.0f}"
+            )
+        lines.append("")
+    lines.append(
+        "Answer analyst questions concisely. Cite article titles and URLs when discussing "
+        "adverse findings. Flag uncertainties. Do not invent data not present above."
+    )
+    return "\n".join(lines)
+
+
+def format_history_context(entity_id: str) -> str:
+    """Return a compact chronological risk history string for injection into user messages."""
+    rows = risk_store.get_history(entity_id)
+    if not rows:
+        return "No historical run data found for this entity."
+    lines = ["Historical risk scores (chronological):"]
+    for r in rows:
+        lines.append(f"  {r['run_ts'][:16]}  —  {r['risk_score']}/100  ({r['risk_category']})")
+    return "\n".join(lines)
+
+
+def render_starter_buttons(questions: list[str]) -> str | None:
+    """Render question strings as buttons; return the label of the one clicked, or None."""
+    cols = st.columns(2)
+    for i, q in enumerate(questions):
+        if cols[i % 2].button(q, use_container_width=True, key=f"starter_{i}"):
+            return q
+    return None
 
 
 def render_social(signals: list, container) -> None:
@@ -77,6 +149,44 @@ def render_manual_entry(default_watchlist: list) -> None:
                     wl = st.session_state.get("uploaded_watchlist") or default_watchlist
                     st.session_state.uploaded_graph = build_vendor_graph(wl, stored)
                     st.success(f"Edge {src} → {tgt} added ({len(stored)} total).")
+
+
+def render_entity_manager(default_watchlist: list) -> None:
+    """Current watchlist table with per-entity delete buttons."""
+    wl = list(st.session_state.get("uploaded_watchlist") or default_watchlist)
+    if not wl:
+        st.caption("Watchlist is empty.")
+        return
+    st.caption(f"{len(wl)} entities")
+    for i, e in enumerate(wl):
+        c1, c2, c3 = st.columns([2, 3, 1])
+        c1.write(f"**{e.name}**  `{e.entity_id}`")
+        c2.caption(f"{e.kind}  ·  {', '.join(e.aliases) if e.aliases else 'no aliases'}")
+        if c3.button("Delete", key=f"del_ent_{i}"):
+            wl.pop(i)
+            st.session_state.uploaded_watchlist = wl
+            st.rerun()
+
+
+def render_edge_manager(default_watchlist: list) -> None:
+    """Current vendor graph edges with per-edge delete buttons."""
+    from brand_risk import synthetic_data as _data
+    g = st.session_state.get("uploaded_graph") or _data.vendor_graph()
+    wl = list(st.session_state.get("uploaded_watchlist") or default_watchlist)
+    name_map = {e.entity_id: e.name for e in wl}
+    edges = [(u, v, d.get("relation", "")) for u, v, d in g.edges(data=True)]
+    if not edges:
+        st.caption("No vendor edges.")
+        return
+    st.caption(f"{len(edges)} edges")
+    for i, (src, tgt, rel) in enumerate(edges):
+        c1, c2 = st.columns([5, 1])
+        c1.write(f"{name_map.get(src, src)}  →  **{rel}**  →  {name_map.get(tgt, tgt)}")
+        if c2.button("Delete", key=f"del_edge_{i}"):
+            remaining = [(s, t, r) for j, (s, t, r) in enumerate(edges) if j != i]
+            st.session_state._manual_edges = remaining
+            st.session_state.uploaded_graph = build_vendor_graph(wl, remaining)
+            st.rerun()
 
 
 def render_vendors(risks: list, container) -> None:

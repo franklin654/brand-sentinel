@@ -8,7 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 from brand_risk import synthetic_data as data
-from pages._helpers import render_manual_entry
+from pages._helpers import render_manual_entry, render_entity_manager, render_edge_manager
 
 st.title("Documents")
 st.caption("Upload data files and supplier contracts. Changes apply to the next pipeline run.")
@@ -89,6 +89,16 @@ e_acme,"Awful recall, unacceptable",p001,2026-06-14T09:00:00
 """)
 
 render_manual_entry(data.WATCHLIST)
+
+# ── Manage current data ───────────────────────────────────────────────────────
+st.divider()
+st.subheader("Manage current data")
+st.caption("Delete entities or edges from the active session. Changes apply immediately.")
+tab_wl_mgr, tab_eg_mgr = st.tabs(["Watchlist entities", "Vendor edges"])
+with tab_wl_mgr:
+    render_entity_manager(data.WATCHLIST)
+with tab_eg_mgr:
+    render_edge_manager(data.WATCHLIST)
 
 # ── Supplier contracts ────────────────────────────────────────────────────────
 st.divider()

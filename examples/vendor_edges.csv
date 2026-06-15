@@ -1,0 +1,4 @@
+source_id,target_id,relation
+e_boeing,e_spirit,fuselage_supplier
+e_boeing,e_ge_aero,engine_supplier
+e_calhoun,e_boeing,ceo_of

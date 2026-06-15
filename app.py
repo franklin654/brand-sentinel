@@ -7,11 +7,12 @@ Run: streamlit run app.py   (from the project root)
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=True)
 
 st.set_page_config(
     page_title="Brand & Reputational Risk Intelligence",
