@@ -1,7 +1,8 @@
-"""Entity detail drill-down — posts, article hits, risk attribution, history."""
+"""Entity detail drill-down — posts, article hits, risk attribution, history, heatmap."""
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
 
 from brand_risk import synthetic_data as data
@@ -12,7 +13,7 @@ st.title("Entity Detail")
 st.caption("Drill-down view for a single monitored entity.")
 
 # ── Entity selector ───────────────────────────────────────────────────────────
-entities = data.WATCHLIST
+entities = st.session_state.get("uploaded_watchlist") or data.WATCHLIST
 entity_ids = [e.entity_id for e in entities]
 entity_names = {e.entity_id: e.name for e in entities}
 
@@ -115,3 +116,29 @@ else:
     ax.grid(axis="y", alpha=0.3)
     st.pyplot(fig)
     plt.close(fig)
+
+# ── Risk heatmap (entity × run) ───────────────────────────────────────────────
+all_entities = risk_store.get_all_entities()
+if len(all_entities) > 1:
+    st.subheader("Risk score heatmap")
+    st.caption("All entities × pipeline runs — darker red = higher risk")
+    histories = {eid: risk_store.get_history(eid) for eid, _ in all_entities}
+    all_ts = sorted({r["run_ts"][:16] for rows in histories.values() for r in rows})
+    if len(all_ts) >= 2:
+        row_labels = [ename for _, ename in all_entities]
+        matrix = np.full((len(all_entities), len(all_ts)), np.nan)
+        ts_idx = {ts: i for i, ts in enumerate(all_ts)}
+        for r_idx, (eid, _) in enumerate(all_entities):
+            for row in histories[eid]:
+                c_idx = ts_idx.get(row["run_ts"][:16])
+                if c_idx is not None:
+                    matrix[r_idx, c_idx] = row["risk_score"]
+        fig2, ax2 = plt.subplots(figsize=(max(5, len(all_ts) * 1.2), len(all_entities) * 0.9 + 1))
+        im = ax2.imshow(matrix, cmap="RdYlGn_r", vmin=0, vmax=100, aspect="auto")
+        ax2.set_xticks(range(len(all_ts)))
+        ax2.set_xticklabels(all_ts, rotation=35, ha="right", fontsize=7)
+        ax2.set_yticks(range(len(row_labels)))
+        ax2.set_yticklabels(row_labels, fontsize=8)
+        plt.colorbar(im, ax=ax2, label="Risk score")
+        st.pyplot(fig2)
+        plt.close(fig2)

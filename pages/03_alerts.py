@@ -39,7 +39,7 @@ st.caption(
 cfg = _load_config()
 new_cfg: dict = {}
 
-for entity in data.WATCHLIST:
+for entity in (st.session_state.get("uploaded_watchlist") or data.WATCHLIST):
     eid  = entity.entity_id
     ecfg = cfg.get(eid, {})
 

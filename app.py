@@ -58,5 +58,7 @@ pg = st.navigation([
     st.Page("pages/02_entity_detail.py", title="Entity Detail", icon="🔍"),
     st.Page("pages/03_alerts.py",        title="Alert Rules",   icon="🔔"),
     st.Page("pages/04_documents.py",     title="Documents",     icon="📄"),
+    st.Page("pages/05_chat.py",          title="Analyst Chat",  icon="💬"),
+    st.Page("pages/06_history.py",       title="Run History",   icon="📈"),
 ])
 pg.run()

@@ -11,7 +11,7 @@ from __future__ import annotations
 import streamlit as st
 
 from brand_risk.llm import chat_stream
-from pages._helpers import build_system_prompt, format_history_context, render_starter_buttons
+from pages._chat_helpers import build_system_prompt, format_history_context, render_starter_buttons
 
 _HISTORY_KEYWORDS = ("before", "history", "trend", "last time", "previous", "past", "ever been")
 
