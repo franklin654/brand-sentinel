@@ -1,5 +1,6 @@
 entity_id,name,kind,aliases
-e_boeing,Boeing,brand,BA;Boeing Co;The Boeing Company
-e_calhoun,Dave Calhoun,executive,David Calhoun;Boeing CEO;David L. Calhoun
-e_spirit,Spirit AeroSystems,vendor,Spirit Aero;SPR;Spirit AeroSystems Holdings
-e_ge_aero,GE Aerospace,vendor,GE Aviation;GEA;General Electric Aerospace
+e_apple,Apple Inc.,brand,Apple;AAPL;Apple Inc.
+e_cook,Tim Cook,executive,Cook;Apple CEO;Timothy Cook
+e_tsmc,TSMC,vendor,Taiwan Semiconductor;TSM;TSMC Limited
+e_samsung,Samsung Electronics,brand,Samsung;Samsung SDI;Samsung Semiconductor
+e_foxconn,Foxconn,vendor,Hon Hai;Foxconn Technology;Hon Hai Precision

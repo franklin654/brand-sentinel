@@ -5,6 +5,7 @@ import streamlit as st
 
 from brand_risk.schemas import Entity
 from brand_risk.upload_parser import build_vendor_graph
+from brand_risk.watchlist_store import save_watchlist
 
 
 def render_social(signals: list, container) -> None:
@@ -63,6 +64,7 @@ def render_manual_entry(default_watchlist: list) -> None:
                             aliases=[a.strip() for a in aliases.split(";") if a.strip()],
                         ))
                         st.session_state.uploaded_watchlist = wl
+                        save_watchlist(wl)
                         st.success(f"Added '{name}' — {len(wl)} entities total.")
         with tab_eg:
             with st.form("manual_edge", clear_on_submit=True):
@@ -93,6 +95,7 @@ def render_entity_manager(default_watchlist: list) -> None:
         if c3.button("Delete", key=f"del_ent_{i}"):
             wl.pop(i)
             st.session_state.uploaded_watchlist = wl
+            save_watchlist(wl)
             st.rerun()
 
 

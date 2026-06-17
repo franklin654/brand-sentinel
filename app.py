@@ -36,6 +36,20 @@ def _init_rag() -> bool:
 
 _init_rag()
 
+# Restore persisted watchlist from disk (survives Streamlit restarts)
+if "uploaded_watchlist" not in st.session_state:
+    from brand_risk.watchlist_store import load_watchlist
+    _saved = load_watchlist()
+    if _saved:
+        st.session_state.uploaded_watchlist = _saved
+
+# Restore persisted RSS config from disk
+if "rss_config" not in st.session_state:
+    from brand_risk.rss_store import load_rss
+    _rss = load_rss()
+    if _rss:
+        st.session_state.rss_config = _rss
+
 with st.sidebar:
     st.title("Brand Risk · TCS-AMD")
     st.caption("Brand & Reputational Risk Intelligence · Hackathon")
@@ -60,5 +74,7 @@ pg = st.navigation([
     st.Page("pages/04_documents.py",     title="Documents",     icon="📄"),
     st.Page("pages/05_chat.py",          title="Analyst Chat",  icon="💬"),
     st.Page("pages/06_history.py",       title="Run History",   icon="📈"),
+    st.Page("pages/07_settings.py",      title="Settings",      icon="⚙️"),
+    st.Page("pages/08_compare.py",       title="Compare",       icon="⚖️"),
 ])
 pg.run()

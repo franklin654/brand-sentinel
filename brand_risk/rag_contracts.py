@@ -73,6 +73,33 @@ def retrieve_contract_clauses(vendor_id: str, context: str, k: int = 3) -> list[
         return []
 
 
+def search_contracts(query: str, vendor_id: str | None = None, k: int = 5) -> list[dict]:
+    """Return k relevant contract chunks as dicts with 'text', 'source', 'vendor_id'.
+
+    If vendor_id is given, results are filtered to that vendor's contract only.
+    Returns [] when no contracts are indexed.
+    """
+    store = _get_contract_store()
+    if store is None:
+        return []
+    try:
+        kwargs: dict = {"k": k}
+        if vendor_id:
+            kwargs["filter"] = {"vendor_id": vendor_id}
+        docs = store.as_retriever(search_type="similarity", search_kwargs=kwargs).invoke(query)
+        return [
+            {
+                "text":      d.page_content.strip(),
+                "source":    d.metadata.get("source", ""),
+                "vendor_id": d.metadata.get("vendor_id", ""),
+            }
+            for d in docs if d.page_content.strip()
+        ]
+    except Exception as exc:
+        logger.warning("Contract search failed (%s)", exc)
+        return []
+
+
 def index_contract(documents: list[Document], vendor_id: str) -> None:
     """Add contract chunks to the contracts Chroma collection.
 

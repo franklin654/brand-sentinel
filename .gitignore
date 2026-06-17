@@ -75,6 +75,9 @@ huggingface/
 # Runtime data (generated at startup — not source)
 .chroma/
 *.db
+watchlist_override.json
+alert_config.json
+rss_config.json
 
 # Build artefacts
 brand-risk-scaffold.zip

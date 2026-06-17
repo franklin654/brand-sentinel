@@ -27,9 +27,15 @@ def _run_pipeline_job() -> None:
         from . import notifier
         from .orchestrator import build_graph
 
+        from .watchlist_store import load_watchlist
+        wl = load_watchlist() or []
+        if not wl:
+            logger.info("Scheduler: no watchlist configured — skipping run.")
+            return
+
         graph = build_graph()
         result = graph.invoke({
-            "watchlist": data.WATCHLIST,
+            "watchlist": wl,
             "graph":     data.vendor_graph(),
             "posts":     data.social_stream(),
         })

@@ -1,4 +1,6 @@
 source_id,target_id,relation
-e_boeing,e_spirit,fuselage_supplier
-e_boeing,e_ge_aero,engine_supplier
-e_calhoun,e_boeing,ceo_of
+e_apple,e_tsmc,chip_foundry_supplier
+e_apple,e_foxconn,assembly_manufacturer
+e_cook,e_apple,ceo_of
+e_samsung,e_tsmc,chip_foundry_customer
+e_foxconn,e_apple,primary_assembler

@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -33,7 +34,7 @@ NEG_POST   = -0.20   # a single post counts as "negative" below this
 NEG_RATIO  =  0.30   # fraction of negative posts that constitutes a spike (default)
 MIN_VOLUME =  3      # absolute floor so tiny samples don't fire
 
-_ALERT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "alert_config.json")
+_ALERT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "alert_config.json")
 
 
 def _load_alert_config() -> dict:
@@ -96,40 +97,42 @@ _ADVERSE_SYS = (
 )
 
 
-def adverse_agent(state: dict) -> dict:
+def _assess_signal(sig: TrendSignal, watchlist: list) -> AdverseFinding:
+    """Score one trend signal against news articles. Designed for parallel execution."""
     from .rag import retrieve_similar_incidents
-
     from .analytics import annotate_articles
 
-    findings = []
-    for sig in state["trend_signals"]:
-        ent = next(e for e in state["watchlist"] if e.entity_id == sig.entity_id)
-        articles = annotate_articles(data.search_news(ent.name, ent.aliases))
-
-        # RAG: retrieve calibration anchors from historical incident index.
-        # Returns [] when .chroma/ index is absent — prompt degrades gracefully.
-        anchors = retrieve_similar_incidents(sig.narrative_cluster, k=3)
-        anchor_block = (
-            "\n\nSimilar past cases — use as scoring anchors:\n"
-            + "\n".join(f"- {a}" for a in anchors)
-        ) if anchors else ""
-
-        user = (
-            f"Entity: {ent.name} (aliases: {', '.join(ent.aliases) or 'none'})\n"
-            f"Social narrative: {sig.narrative_cluster}"
-            + anchor_block
-            + "\n\nCandidate articles:\n" + "\n".join(
-                f"[{i}] {a['title']} — {a['snippet']} ({a['url']})"
-                f" [source credibility: {a.get('credibility', 0.5):.2f}]"
-                for i, a in enumerate(articles)
-            )
+    ent = next(e for e in watchlist if e.entity_id == sig.entity_id)
+    articles = annotate_articles(data.search_news(ent.name, ent.aliases))
+    anchors = retrieve_similar_incidents(sig.narrative_cluster, k=3)
+    anchor_block = (
+        "\n\nSimilar past cases — use as scoring anchors:\n"
+        + "\n".join(f"- {a}" for a in anchors)
+    ) if anchors else ""
+    user = (
+        f"Entity: {ent.name} (aliases: {', '.join(ent.aliases) or 'none'})\n"
+        f"Social narrative: {sig.narrative_cluster}"
+        + anchor_block
+        + "\n\nCandidate articles:\n" + "\n".join(
+            f"[{i}] {a['title']} — {a['snippet']} ({a['url']})"
+            f" [source credibility: {a.get('credibility', 0.5):.2f}]"
+            for i, a in enumerate(articles)
         )
-        finding = chat_json(_ADVERSE_SYS, user, AdverseFinding)
-        # Trust the model's reasoning but pin identifiers to our ground truth.
-        finding.entity_id = ent.entity_id
-        finding.entity_name = ent.name
-        finding.calibration_anchors = anchors
-        findings.append(finding)
+    )
+    finding = chat_json(_ADVERSE_SYS, user, AdverseFinding)
+    finding.entity_id = ent.entity_id
+    finding.entity_name = ent.name
+    finding.calibration_anchors = anchors
+    return finding
+
+
+def adverse_agent(state: dict) -> dict:
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {
+            pool.submit(_assess_signal, sig, state["watchlist"]): sig
+            for sig in state["trend_signals"]
+        }
+        findings = [f.result() for f in as_completed(futures)]
     state["adverse_findings"] = findings
     return state
 
@@ -144,14 +147,39 @@ _VENDOR_SYS = (
 )
 
 
-def vendor_agent(state: dict) -> dict:
+def _assess_vendor(
+    finding: AdverseFinding, nbr: str, relation: str, nbr_name: str,
+) -> VendorRisk:
+    """Assess one vendor neighbour. Designed for parallel execution."""
     from .rag import retrieve_contract_clauses
 
+    clauses = retrieve_contract_clauses(nbr, finding.explanation, k=3)
+    clause_block = (
+        "\n\nRelevant contract clauses — cite these in your rationale:\n"
+        + "\n".join(f"- {c[:300]}" for c in clauses)
+    ) if clauses else ""
+    user = (
+        f"Flagged entity: {finding.entity_name} "
+        f"(risk {finding.risk_score}/100, {finding.risk_category})\n"
+        f"Finding: {finding.explanation}"
+        + clause_block
+        + f"\n\nNeighbour under review: {nbr_name}\n"
+        f"Graph relation: {relation}"
+    )
+    vr = chat_json(_VENDOR_SYS, user, VendorRisk)
+    vr.vendor_id = nbr
+    vr.vendor_name = nbr_name
+    vr.cited_clauses = clauses
+    return vr
+
+
+def vendor_agent(state: dict) -> dict:
     g = state["graph"]
-    risks = []
-    seen = set()
+    seen: set = set()
+    tasks: list[tuple] = []
+
     for finding in state["adverse_findings"]:
-        if finding.risk_category in ("low",):
+        if finding.risk_category == "low":
             continue
         for nbr in g.neighbors(finding.entity_id):
             if (finding.entity_id, nbr) in seen:
@@ -159,26 +187,16 @@ def vendor_agent(state: dict) -> dict:
             seen.add((finding.entity_id, nbr))
             relation = g.edges[finding.entity_id, nbr]["relation"]
             nbr_name = g.nodes[nbr]["name"]
+            tasks.append((finding, nbr, relation, nbr_name))
 
-            # Contract RAG: retrieve relevant clauses (returns [] when no contract indexed).
-            clauses = retrieve_contract_clauses(nbr, finding.explanation, k=3)
-            clause_block = (
-                "\n\nRelevant contract clauses — cite these in your rationale:\n"
-                + "\n".join(f"- {c[:300]}" for c in clauses)
-            ) if clauses else ""
+    risks: list[VendorRisk] = []
+    if tasks:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = [
+                pool.submit(_assess_vendor, finding, nbr, relation, nbr_name)
+                for finding, nbr, relation, nbr_name in tasks
+            ]
+            risks = [f.result() for f in as_completed(futures)]
 
-            user = (
-                f"Flagged entity: {finding.entity_name} "
-                f"(risk {finding.risk_score}/100, {finding.risk_category})\n"
-                f"Finding: {finding.explanation}"
-                + clause_block
-                + f"\n\nNeighbour under review: {nbr_name}\n"
-                f"Graph relation: {relation}"
-            )
-            vr = chat_json(_VENDOR_SYS, user, VendorRisk)
-            vr.vendor_id = nbr
-            vr.vendor_name = nbr_name
-            vr.cited_clauses = clauses
-            risks.append(vr)
     state["vendor_risks"] = risks
     return state
