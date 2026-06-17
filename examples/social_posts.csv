@@ -1,16 +1,61 @@
 entity_id,text,post_id,timestamp
-e_boeing,The 737 Max door plug blowout is terrifying — never flying Boeing again,p_ex_001,2026-06-01T09:05:00
-e_boeing,Boeing quality control is in freefall — FAA found hundreds of defects in new jets,p_ex_002,2026-06-01T09:12:00
-e_boeing,How many more incidents before Boeing is held accountable for cutting corners on safety?,p_ex_003,2026-06-01T09:31:00
-e_boeing,Shocking that Boeing planes are still certified after that door plug blew mid-flight,p_ex_004,2026-06-01T10:04:00
-e_boeing,Boeing posted solid results this quarter despite the safety headlines,p_ex_005,2026-06-01T10:22:00
-e_boeing,Analysts cautiously optimistic on Boeing given backlog — risk is real though,p_ex_006,2026-06-01T10:45:00
-e_calhoun,Dave Calhoun's Senate testimony was evasive and insulting to victims' families,p_ex_007,2026-06-01T11:00:00
-e_calhoun,Boeing CEO Calhoun pocketed $45M while the company ignored safety warnings — disgusting,p_ex_008,2026-06-01T11:18:00
-e_calhoun,Calhoun admitted knowing about quality issues and did nothing — criminal negligence,p_ex_009,2026-06-01T11:35:00
-e_calhoun,The CEO's response to the door plug crisis was tone-deaf and completely unacceptable,p_ex_010,2026-06-01T12:02:00
-e_calhoun,Reading up on Dave Calhoun's background for a business school case study,p_ex_011,2026-06-01T12:20:00
-e_spirit,Spirit AeroSystems shares tanked after the fuselage defect reports — rightfully so,p_ex_012,2026-06-01T12:45:00
-e_spirit,Anyone tracking Spirit AeroSystems recovery plan after the Boeing audit findings?,p_ex_013,2026-06-01T13:10:00
-e_ge_aero,GE Aerospace engines on schedule — good news amid the Boeing production mess,p_ex_014,2026-06-01T13:30:00
-e_ge_aero,GE Aerospace quarterly numbers look solid — diversified enough to weather Boeing slowdown,p_ex_015,2026-06-01T14:00:00
+e_apple,Apple hit with record €500m EU App Store antitrust fine — biggest penalty yet for tech giant,p_apple_001,2025-03-05T08:00:00
+e_apple,Apple Intelligence features delayed again — Siri overhaul pushed to 2026,p_apple_002,2025-04-12T10:30:00
+e_apple,iPhone sales in China drop 20% as Huawei eats into Apple's market share,p_apple_003,2025-02-18T14:00:00
+e_apple,Apple ordered to open App Store payments to third parties in South Korea ruling,p_apple_004,2025-05-22T09:15:00
+e_apple,EU regulators launch second investigation into Apple over DMA non-compliance,p_apple_005,2025-06-01T11:00:00
+e_apple,Apple unveils M4 MacBook Pro lineup — analysts praise performance leap,p_apple_006,2025-01-20T16:00:00
+e_apple,Apple Vision Pro sales underwhelm — production cut rumoured for 2026,p_apple_007,2025-03-30T13:00:00
+e_apple,Apple reports record services revenue of $26B in Q2 2025,p_apple_008,2025-05-01T08:00:00
+e_apple,Apple's privacy labels under scrutiny as researchers find tracking inconsistencies,p_apple_009,2025-04-08T10:00:00
+e_apple,Apple expands manufacturing to India — Foxconn Chennai plant hits 1M iPhones monthly,p_apple_010,2025-02-10T12:00:00
+e_apple,App Store review process slammed by developers as arbitrary and opaque,p_apple_011,2025-05-15T09:00:00
+e_apple,Apple shares rally after strong Q1 earnings beat expectations,p_apple_012,2025-01-31T17:00:00
+e_cook,Tim Cook faces congressional grilling over Apple's deep ties to China manufacturing,p_cook_001,2025-03-18T14:00:00
+e_cook,Critics say Cook's AI strategy is reactive not visionary — Apple ceding ground to OpenAI,p_cook_002,2025-04-25T10:00:00
+e_cook,Cook defends App Store fees as senators push for antitrust reform,p_cook_003,2025-05-07T11:30:00
+e_cook,Tim Cook's compensation package draws shareholder pushback at annual meeting,p_cook_004,2025-02-28T15:00:00
+e_cook,Cook signals Apple will not rush generative AI — quality over speed,p_cook_005,2025-01-15T09:00:00
+e_cook,Tim Cook visits India and Vietnam — signals supply chain diversification push,p_cook_006,2025-03-05T08:30:00
+e_cook,Cook pledges $500B US investment over four years amid tariff pressure,p_cook_007,2025-02-20T13:00:00
+e_cook,Analysts question whether Cook has the AI credibility to compete with Altman and Pichai,p_cook_008,2025-05-30T12:00:00
+e_cook,Tim Cook recognised as Fortune's top CEO for supply chain resilience,p_cook_009,2025-04-01T10:00:00
+e_cook,Cook under pressure after Apple misses iPhone unit forecasts for third consecutive quarter,p_cook_010,2025-01-28T16:30:00
+e_cook,Apple CEO Tim Cook defends privacy stance at World Economic Forum,p_cook_011,2025-01-22T09:00:00
+e_cook,Cook's leadership questioned as Apple lags peers in AI product launches,p_cook_012,2025-06-10T11:00:00
+e_tsmc,TSMC warns of supply disruption risk as Taiwan geopolitical tensions escalate,p_tsmc_001,2025-04-10T09:00:00
+e_tsmc,US export controls force TSMC to halt advanced chip shipments to key Chinese customers,p_tsmc_002,2025-03-22T10:30:00
+e_tsmc,TSMC raises 2nm chip prices by 15% citing surging AI demand and power costs,p_tsmc_003,2025-05-14T08:00:00
+e_tsmc,Earthquake near Hsinchu disrupts TSMC fab operations — output reduced for two weeks,p_tsmc_004,2025-02-06T14:00:00
+e_tsmc,TSMC Arizona plant delayed again — union disputes and permitting issues blamed,p_tsmc_005,2025-04-28T11:00:00
+e_tsmc,TSMC posts record quarterly revenue driven by AI chip demand from Apple and Nvidia,p_tsmc_006,2025-01-16T08:00:00
+e_tsmc,TSMC confirms 2nm mass production on track for Q4 2025,p_tsmc_007,2025-03-01T09:30:00
+e_tsmc,TSMC partners with Sony and Toyota on Japan fab — government subsidies secured,p_tsmc_008,2025-02-14T10:00:00
+e_tsmc,Analysts warn TSMC overexposed to Apple — single customer accounts for 25% of revenue,p_tsmc_009,2025-05-20T13:00:00
+e_tsmc,TSMC board approves $40B capex plan for 2026 — largest in company history,p_tsmc_010,2025-01-30T15:00:00
+e_tsmc,Water shortage in Taiwan threatens TSMC fab uptime during dry season,p_tsmc_011,2025-03-12T08:30:00
+e_tsmc,TSMC expands European presence with Dresden fab groundbreaking ceremony,p_tsmc_012,2025-04-20T10:00:00
+e_samsung,Samsung Galaxy S25 recall warning issued after overheating reports from multiple markets,p_samsung_001,2025-04-05T09:00:00
+e_samsung,Samsung faces class-action lawsuit over memory chip price-fixing allegations,p_samsung_002,2025-03-15T11:00:00
+e_samsung,South Korea president impeachment crisis rattles Samsung leadership succession plan,p_samsung_003,2025-01-08T08:00:00
+e_samsung,Samsung HBM3e chips fail Nvidia qualification tests — losing ground to SK Hynix,p_samsung_004,2025-02-25T10:30:00
+e_samsung,Samsung fined $120M by EU for anticompetitive practices in DRAM market,p_samsung_005,2025-05-10T13:00:00
+e_samsung,Samsung posts 14x profit surge as memory chip cycle rebounds strongly,p_samsung_006,2025-01-31T09:00:00
+e_samsung,Samsung Galaxy AI features win praise — on-device translation a standout,p_samsung_007,2025-02-20T11:00:00
+e_samsung,Samsung unveils world's thinnest foldable — Galaxy Z Fold 7 draws design awards,p_samsung_008,2025-05-28T10:00:00
+e_samsung,Samsung foundry wins MediaTek order as TSMC capacity tightens,p_samsung_009,2025-03-08T14:00:00
+e_samsung,Samsung heir Jay Y. Lee acquitted of financial fraud in South Korean court,p_samsung_010,2025-04-17T15:00:00
+e_samsung,Consumer groups slam Samsung over slow security patch rollout on older Galaxy devices,p_samsung_011,2025-06-02T09:30:00
+e_samsung,Samsung and Google deepen AI partnership — Gemini integrated across Galaxy ecosystem,p_samsung_012,2025-01-25T10:00:00
+e_foxconn,Foxconn India workers strike over unpaid wages at Apple assembly plant in Chennai,p_foxconn_001,2025-03-28T10:00:00
+e_foxconn,Human rights groups criticise Foxconn over labour conditions in Vietnam factories,p_foxconn_002,2025-04-18T09:30:00
+e_foxconn,Terry Gou's political campaign in Taiwan draws scrutiny over conflict of interest,p_foxconn_003,2025-02-12T11:00:00
+e_foxconn,Foxconn faces export compliance review after undisclosed shipments to restricted regions,p_foxconn_004,2025-05-08T13:00:00
+e_foxconn,Environmental violations reported at Foxconn Zhengzhou campus — local watchdog investigation,p_foxconn_005,2025-01-20T08:30:00
+e_foxconn,Foxconn India ramps iPhone 16 production — 20,000 jobs added in Tamil Nadu,p_foxconn_006,2025-03-10T10:00:00
+e_foxconn,Foxconn reports record quarterly profit on strong Apple and Nvidia server orders,p_foxconn_007,2025-02-05T08:00:00
+e_foxconn,Foxconn wins AI server contract from Microsoft — $3B deal over three years,p_foxconn_008,2025-04-22T09:00:00
+e_foxconn,Foxconn EV subsidiary struggles — Young Liu signals strategic review of automotive unit,p_foxconn_009,2025-05-17T14:00:00
+e_foxconn,Foxconn Mexico plant expansion approved — $500M investment in Chihuahua facility,p_foxconn_010,2025-01-14T11:00:00
+e_foxconn,Workers at Foxconn Poland plant vote to unionise — first in company's European history,p_foxconn_011,2025-03-03T10:30:00
+e_foxconn,Foxconn partners with NVIDIA on next-gen GB200 server rack assembly,p_foxconn_012,2025-05-25T09:00:00

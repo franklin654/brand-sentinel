@@ -12,7 +12,7 @@ import streamlit as st
 
 from brand_risk import synthetic_data as data
 
-CONFIG_PATH = Path(__file__).parent.parent / "brand_risk" / "alert_config.json"
+CONFIG_PATH = Path(__file__).parent.parent / "alert_config.json"
 NEG_RATIO_DEFAULT = 0.30
 CEILING_DEFAULT   = 100
 
@@ -39,7 +39,12 @@ st.caption(
 cfg = _load_config()
 new_cfg: dict = {}
 
-for entity in (st.session_state.get("uploaded_watchlist") or data.WATCHLIST):
+_entities = list(st.session_state.get("uploaded_watchlist") or [])
+if not _entities:
+    st.info("No entities — upload a watchlist on the **Documents** page first.")
+    st.stop()
+
+for entity in _entities:
     eid  = entity.entity_id
     ecfg = cfg.get(eid, {})
 
@@ -62,8 +67,24 @@ for entity in (st.session_state.get("uploaded_watchlist") or data.WATCHLIST):
         )
 
         notify_opts = ecfg.get("notify", [])
-        notify_slack = st.checkbox("Notify via Slack", value="slack" in notify_opts, key=f"slack_{eid}")
-        notify_email = st.checkbox("Notify via Email", value="email" in notify_opts, key=f"email_{eid}")
+        nc1, nc2 = st.columns(2)
+        notify_slack = nc1.checkbox("Notify via Slack", value="slack" in notify_opts, key=f"slack_{eid}")
+        notify_email = nc2.checkbox("Notify via Email", value="email" in notify_opts, key=f"email_{eid}")
+
+        webhook_url = st.text_input(
+            "Slack webhook URL",
+            value=ecfg.get("webhook_url", ""),
+            key=f"webhook_{eid}",
+            placeholder="https://hooks.slack.com/services/…",
+            disabled=not notify_slack,
+        )
+        email_to = st.text_input(
+            "Alert email address",
+            value=ecfg.get("email_to", ""),
+            key=f"emailto_{eid}",
+            placeholder="analyst@company.com",
+            disabled=not notify_email,
+        )
 
         notify = []
         if notify_slack:
@@ -75,6 +96,8 @@ for entity in (st.session_state.get("uploaded_watchlist") or data.WATCHLIST):
             "neg_ratio":         neg_ratio,
             "risk_score_ceiling": risk_ceil,
             "notify":            notify,
+            "webhook_url":       webhook_url,
+            "email_to":          email_to,
         }
 
 st.divider()

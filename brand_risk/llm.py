@@ -32,13 +32,26 @@ def _get_llm() -> ChatOpenAI:
     loaded by load_dotenv() in app.py are visible before the client is created."""
     global _llm_instance
     if _llm_instance is None:
-        _llm_instance = ChatOpenAI(
+        kwargs: dict = dict(
             base_url=os.getenv("LLM_BASE_URL", "http://localhost:8080/v1"),
             model=os.getenv("LLM_MODEL", "bartowski/Qwen_Qwen3-14B-GGUF:Q4_K_M"),
             api_key="none",  # vLLM / llama-server do not validate the key
             temperature=0.1,
         )
+        _token = os.getenv("JUPYTER_TOKEN", "")
+        if _token:
+            kwargs["default_query"] = {"token": _token}
+        _llm_instance = ChatOpenAI(**kwargs)
     return _llm_instance
+
+
+def reset_llm() -> None:
+    """Invalidate the cached LLM client so the next call rebuilds it from env vars.
+
+    Call this from the Settings page after writing new LLM_BASE_URL / LLM_MODEL.
+    """
+    global _llm_instance
+    _llm_instance = None
 
 
 def chat(system: str, user: str, temperature: float = 0.1) -> str:

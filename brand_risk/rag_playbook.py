@@ -72,6 +72,28 @@ def retrieve_response_template(query: str, k: int = 1) -> str:
         return ""
 
 
+def search_playbook(query: str, k: int = 5) -> list[dict]:
+    """Return k relevant playbook chunks as dicts with 'text' and 'source'.
+
+    Returns [] when no playbook is indexed.
+    """
+    store = _get_playbook_store()
+    if store is None:
+        return []
+    try:
+        docs = store.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": k},
+        ).invoke(query)
+        return [
+            {"text": d.page_content.strip(), "source": d.metadata.get("source", "")}
+            for d in docs if d.page_content.strip()
+        ]
+    except Exception as exc:
+        logger.warning("Playbook search failed (%s)", exc)
+        return []
+
+
 def index_playbook(documents: list[Document]) -> None:
     """Add playbook chunks to the 'playbook' Chroma collection (additive).
 

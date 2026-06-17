@@ -52,6 +52,55 @@ def collect_alerts(dossiers: list, alert_cfg: dict) -> list[str]:
     return alerts
 
 
+def send_slack(msg: str, webhook_url: str) -> None:
+    """POST a plain text alert to a specific Slack incoming webhook URL.
+
+    Args:
+        msg:         Alert message text.
+        webhook_url: Slack incoming webhook URL from alert_config.json.
+    """
+    if not webhook_url:
+        return
+    payload = json.dumps({"text": msg}).encode()
+    req = urllib.request.Request(
+        webhook_url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        logger.info("Slack alert delivered to configured webhook.")
+    except Exception as exc:
+        logger.warning("Slack delivery failed: %s", exc)
+
+
+def send_email(msg: str, to: str) -> None:
+    """Send an alert email to an explicit recipient address.
+
+    Uses SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS env vars.
+    Silent no-op if SMTP_HOST is not configured.
+
+    Args:
+        msg: Alert message text.
+        to:  Recipient email address from alert_config.json.
+    """
+    if not to or not SMTP_HOST:
+        return
+    email_msg = MIMEText(msg)
+    email_msg["Subject"] = "Brand Risk Alert"
+    email_msg["From"]    = SMTP_USER or "brand-risk@noreply.local"
+    email_msg["To"]      = to
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            if SMTP_USER and SMTP_PASS:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(email_msg)
+        logger.info("Email alert delivered to %s.", to)
+    except Exception as exc:
+        logger.warning("Email delivery failed to %s: %s", to, exc)
+
+
 def notify(dossier, channels: list[str]) -> None:
     """Deliver an alert for a single dossier via the specified channels.
 

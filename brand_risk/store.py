@@ -4,9 +4,11 @@ DB file: brand_risk.db in the project root (or BRAND_RISK_DB env var).
 Schema: single 'runs' table — one row per entity per pipeline run.
 
 Public API:
-    save_run(dossiers)      → persist scores from a completed pipeline run
-    get_history(entity_id)  → chronological list of run rows for trend charts
-    get_all_entities()      → list of (entity_id, entity_name) with history
+    save_run(dossiers)          → persist scores + full dossier JSON
+    get_history(entity_id)      → chronological list of run rows for trend charts
+    get_latest(entity_id)       → most recent row for one entity
+    get_delta(entity_id)        → latest_score − previous_score, or None
+    get_all_entities()          → list of (entity_id, entity_name) with history
 """
 from __future__ import annotations
 
@@ -30,21 +32,29 @@ CREATE TABLE IF NOT EXISTS runs (
     overall_risk  TEXT    NOT NULL,
     social_pct    REAL    DEFAULT 0.0,
     media_pct     REAL    DEFAULT 0.0,
-    vendor_pct    REAL    DEFAULT 0.0
+    vendor_pct    REAL    DEFAULT 0.0,
+    dossier_json  TEXT
 );
 """
+
+_MIGRATE_SQL = "ALTER TABLE runs ADD COLUMN dossier_json TEXT;"
 
 
 def _conn() -> sqlite3.Connection:
     """Open (and initialise schema if needed) the SQLite DB."""
     con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
     con.execute(_CREATE_SQL)
-    con.commit()
+    try:
+        con.execute(_MIGRATE_SQL)
+        con.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists — no-op
     return con
 
 
 def save_run(dossiers: list) -> None:
-    """Persist one row per dossier into the runs table."""
+    """Persist one row per dossier into the runs table, including the full dossier JSON."""
     ts = datetime.now(timezone.utc).isoformat()
     rows = [
         (
@@ -57,6 +67,7 @@ def save_run(dossiers: list) -> None:
             d.risk_attribution.get("social_pct", 0.0),
             d.risk_attribution.get("media_pct",  0.0),
             d.risk_attribution.get("vendor_pct", 0.0),
+            d.model_dump_json(),
         )
         for d in dossiers
     ]
@@ -64,8 +75,8 @@ def save_run(dossiers: list) -> None:
         con.executemany(
             "INSERT INTO runs "
             "(run_ts, entity_id, entity_name, risk_score, risk_category, "
-            "overall_risk, social_pct, media_pct, vendor_pct) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "overall_risk, social_pct, media_pct, vendor_pct, dossier_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
     logger.info("Persisted %d dossier(s) to %s", len(rows), DB_PATH)
@@ -75,12 +86,12 @@ def get_history(entity_id: str) -> list[dict]:
     """Return all run rows for an entity ordered chronologically."""
     with _conn() as con:
         cur = con.execute(
-            "SELECT run_ts, risk_score, risk_category, social_pct, media_pct, vendor_pct "
+            "SELECT run_ts, risk_score, risk_category, social_pct, media_pct, "
+            "vendor_pct, dossier_json "
             "FROM runs WHERE entity_id = ? ORDER BY run_ts ASC",
             (entity_id,),
         )
-        cols = [c[0] for c in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        return [dict(row) for row in cur.fetchall()]
 
 
 def get_latest(entity_id: str) -> dict | None:
@@ -90,9 +101,21 @@ def get_latest(entity_id: str) -> dict | None:
             "SELECT * FROM runs WHERE entity_id=? ORDER BY run_ts DESC LIMIT 1",
             (entity_id,),
         )
-        cols = [c[0] for c in cur.description]
         row = cur.fetchone()
-        return dict(zip(cols, row)) if row else None
+        return dict(row) if row else None
+
+
+def get_delta(entity_id: str) -> int | None:
+    """Return latest_score − previous_score, or None if fewer than 2 runs exist."""
+    with _conn() as con:
+        cur = con.execute(
+            "SELECT risk_score FROM runs WHERE entity_id = ? ORDER BY run_ts DESC LIMIT 2",
+            (entity_id,),
+        )
+        rows = cur.fetchall()
+    if len(rows) < 2:
+        return None
+    return rows[0][0] - rows[1][0]
 
 
 def get_all_entities() -> list[tuple[str, str]]:
@@ -101,4 +124,4 @@ def get_all_entities() -> list[tuple[str, str]]:
         cur = con.execute(
             "SELECT DISTINCT entity_id, entity_name FROM runs ORDER BY entity_name"
         )
-        return cur.fetchall()
+        return [(row[0], row[1]) for row in cur.fetchall()]

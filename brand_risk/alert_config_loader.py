@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CONFIG_PATH: Path = Path(__file__).parent / "alert_config.json"
+CONFIG_PATH: Path = Path(__file__).parent.parent / "alert_config.json"
 
 
 def load_alert_config() -> dict:
